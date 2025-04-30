@@ -96,4 +96,64 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// GET: Get all users
+router.get("/users", async (req, res) => {
+  try {
+    // Find all users but exclude passwords
+    const users = await User.find().select("-password");
+    
+    res.json({
+      success: true,
+      count: users.length,
+      users: users.map(user => ({
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        createdAt: user.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET: Get user by ID
+router.get("/users/:id", async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    const user = await User.findById(userId).select("-password");
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "User not found" 
+      });
+    }
+    
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    
+    // Handle invalid ObjectId format
+    if (error.kind === "ObjectId") {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid user ID format" 
+      });
+    }
+    
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 module.exports = router;
