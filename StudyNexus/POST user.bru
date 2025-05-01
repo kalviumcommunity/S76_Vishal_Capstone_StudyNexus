@@ -1,0 +1,20 @@
+meta {
+  name: POST user
+  type: http
+  seq: 7
+}
+
+post {
+  url: http://localhost:5000/api/auth/register
+  body: json
+  auth: inherit
+}
+
+body:json {
+  // POST to http://localhost:5000/api/auth/register
+  {
+    "fullName": "Dharun Kumar",
+    "email": "dharun@aura.com",
+    "password": "aura999+"
+  }
+}

@@ -21,9 +21,13 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch((error) => console.error('MongoDB connection error:', error));
 
-// Basic route
+// Updated root route with JSON response
 app.get('/', (req, res) => {
-  res.send('StudyNexus API is running');
+  res.json({
+    name: "StudyNexus API",
+    status: "online",
+    message: "API is running. Use /api/auth/users to access user data."
+  });
 });
 
 // Start server
