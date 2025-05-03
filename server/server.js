@@ -1,10 +1,12 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
 
 // Import User model
 const User = require("./models/User");
+
+// Import DB connection
+const connectDB = require("./db"); // Import the connectDB function
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -15,15 +17,11 @@ app.use(express.json());
 
 // Import routes
 const authRoutes = require("./routes/auth.routes");
+const studyGroupRoutes = require("./routes/studyGroupRoutes");
 
 // Use routes
 app.use("/api/auth", authRoutes);
-
-// Database connection
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((error) => console.error("MongoDB connection error:", error));
+app.use("/api/studygroups", studyGroupRoutes);
 
 // Updated root route to display users
 app.get("/", async (req, res) => {
@@ -52,9 +50,17 @@ app.get("/", async (req, res) => {
   }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Connect to MongoDB before starting server
+connectDB()
+  .then(() => {
+    // Start server after successful connection
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to connect to MongoDB:", err.message);
+    process.exit(1);
+  });
 
 module.exports = app;
