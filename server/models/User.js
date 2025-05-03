@@ -20,6 +20,15 @@ const userSchema = new mongoose.Schema({
     minlength: 6,
     select: false
   },
+  // Add relationship fields to connect with StudyGroup
+  createdStudyGroups: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'StudyGroup'
+  }],
+  studyGroups: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'StudyGroup'
+  }],
   createdAt: {
     type: Date,
     default: Date.now

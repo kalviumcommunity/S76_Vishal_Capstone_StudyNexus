@@ -18,11 +18,13 @@ const studyGroupSchema = new Schema({
     ref: 'Course',
     required: true
   },
+  // Links to creator user
   creator: {
     type: Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
+  // Members collection maintains the many-to-many relationship with users
   members: {
     type: [{
       user: {
@@ -189,9 +191,37 @@ function validateEventTimeOrder(val) {
   return true;
 }
 
+// Middleware to update updatedAt field before saving
 studyGroupSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
+});
+
+// Add a post-save hook to update the user's createdStudyGroups and studyGroups fields
+studyGroupSchema.post('save', async function(doc) {
+  // If this is a new group, update the creator's createdStudyGroups array
+  if (this.isNew) {
+    try {
+      const User = mongoose.model('User');
+      // Update creator's createdStudyGroups
+      await User.findByIdAndUpdate(
+        doc.creator,
+        { $addToSet: { createdStudyGroups: doc._id, studyGroups: doc._id } }
+      );
+      
+      // For each member, update their studyGroups array
+      for (const member of doc.members) {
+        if (member.user.toString() !== doc.creator.toString()) {
+          await User.findByIdAndUpdate(
+            member.user,
+            { $addToSet: { studyGroups: doc._id } }
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error updating user references:', error);
+    }
+  }
 });
 
 const StudyGroup = mongoose.model('StudyGroup', studyGroupSchema);
