@@ -46,6 +46,8 @@
 3. Set up environment variables
 4. Run the development server (`npm run dev`)
 
+## 🌐 Deployment
+* **Backend Server:** [https://s76-vishal-capstone-studynexus.onrender.com](https://s76-vishal-capstone-studynexus.onrender.com)
+
 ---
 *StudyNexus: Connecting minds for better learning*
-
