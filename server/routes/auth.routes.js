@@ -1,11 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const mongoose = require("mongoose"); // Add this for ObjectId validation
-const bcrypt = require("bcryptjs"); // Add this for password hashing
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const { registerSchema, loginSchema, updateUserSchema } = require('../Validation/authValidation');
+const validateRequest = require('../middleware/validateRequest');
 
-// POST: User registration
-router.post("/register", async (req, res) => {
+// POST: User registration - Add Joi validation middleware
+router.post("/register", validateRequest(registerSchema), async (req, res) => {
   try {
     // Extract fields and handle both name and fullName for compatibility
     const { name, fullName, email, password } = req.body;
@@ -19,21 +21,6 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "User already exists",
-      });
-    }
-
-    // Validate required fields
-    if (!userFullName) {
-      return res.status(400).json({
-        success: false,
-        message: "Name is required",
-      });
-    }
-
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required",
       });
     }
 
@@ -61,8 +48,8 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// POST: User login
-router.post("/login", async (req, res) => {
+// POST: User login - Add Joi validation middleware
+router.post("/login", validateRequest(loginSchema), async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -158,8 +145,8 @@ router.get("/users/:id", async (req, res) => {
   }
 });
 
-// PUT: Update user by ID
-router.put("/users/:id", async (req, res) => {
+// PUT: Update user by ID - Add Joi validation middleware
+router.put("/users/:id", validateRequest(updateUserSchema), async (req, res) => {
   try {
     const userId = req.params.id;
     const { fullName, email, password, currentPassword } = req.body;
@@ -195,28 +182,12 @@ router.put("/users/:id", async (req, res) => {
 
     // Password change requires current password verification
     if (password) {
-      // Require current password for security
-      if (!currentPassword) {
-        return res.status(400).json({
-          success: false,
-          message: "Current password is required to set a new password",
-        });
-      }
-
       // Verify current password
       const isPasswordCorrect = await user.comparePassword(currentPassword);
       if (!isPasswordCorrect) {
         return res.status(401).json({
           success: false,
           message: "Current password is incorrect",
-        });
-      }
-
-      // Password validation
-      if (password.length < 6) {
-        return res.status(400).json({
-          success: false,
-          message: "Password must be at least 6 characters",
         });
       }
     }
