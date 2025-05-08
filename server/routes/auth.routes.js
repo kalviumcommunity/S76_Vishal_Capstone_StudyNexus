@@ -2,9 +2,18 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken"); // Add JWT import
 const User = require("../models/User");
 const { registerSchema, loginSchema, updateUserSchema } = require('../Validation/authValidation');
 const validateRequest = require('../middleware/validateRequest');
+const { protect } = require('../middleware/authMiddleware'); // Import the auth middleware
+
+// JWT Token Generation utility
+const generateToken = (userId) => {
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+  });
+};
 
 // POST: User registration - Add Joi validation middleware
 router.post("/register", validateRequest(registerSchema), async (req, res) => {
@@ -33,6 +42,10 @@ router.post("/register", validateRequest(registerSchema), async (req, res) => {
 
     await newUser.save();
 
+    // Generate JWT token
+    const token = generateToken(newUser._id);
+    console.log('Generated token for new user:', token); // For testing
+
     res.status(201).json({
       success: true,
       message: "Registration successful",
@@ -41,6 +54,7 @@ router.post("/register", validateRequest(registerSchema), async (req, res) => {
         fullName: newUser.fullName,
         email: newUser.email,
       },
+      token // Include token in response
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -70,6 +84,10 @@ router.post("/login", validateRequest(loginSchema), async (req, res) => {
         .json({ success: false, message: "Invalid credentials" });
     }
 
+    // Generate JWT token
+    const token = generateToken(user._id);
+    console.log('Generated token on login:', token); // For testing
+
     res.json({
       success: true,
       message: "Login successful",
@@ -78,6 +96,7 @@ router.post("/login", validateRequest(loginSchema), async (req, res) => {
         fullName: user.fullName,
         email: user.email,
       },
+      token // Include token in response
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -85,8 +104,29 @@ router.post("/login", validateRequest(loginSchema), async (req, res) => {
   }
 });
 
-// GET: Get all users
-router.get("/users", async (req, res) => {
+// GET: Get current user (protected route)
+router.get("/me", protect, async (req, res) => {
+  try {
+    // User is available from the middleware
+    const user = req.user;
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching current user:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET: Get all users - Protected route
+router.get("/users", protect, async (req, res) => {
   try {
     // Find all users but exclude passwords
     const users = await User.find().select("-password");
@@ -107,8 +147,8 @@ router.get("/users", async (req, res) => {
   }
 });
 
-// GET: Get user by ID
-router.get("/users/:id", async (req, res) => {
+// GET: Get user by ID - Protected route
+router.get("/users/:id", protect, async (req, res) => {
   try {
     const userId = req.params.id;
 
@@ -145,8 +185,8 @@ router.get("/users/:id", async (req, res) => {
   }
 });
 
-// PUT: Update user by ID - Add Joi validation middleware
-router.put("/users/:id", validateRequest(updateUserSchema), async (req, res) => {
+// PUT: Update user by ID - Protected route with Joi validation middleware
+router.put("/users/:id", protect, validateRequest(updateUserSchema), async (req, res) => {
   try {
     const userId = req.params.id;
     const { fullName, email, password, currentPassword } = req.body;
@@ -156,6 +196,14 @@ router.put("/users/:id", validateRequest(updateUserSchema), async (req, res) => 
       return res.status(400).json({
         success: false,
         message: "Invalid user ID format",
+      });
+    }
+
+    // Add authorization check: User can only update their own profile
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to update this user",
       });
     }
 
