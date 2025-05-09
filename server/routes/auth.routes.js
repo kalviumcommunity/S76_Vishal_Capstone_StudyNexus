@@ -274,4 +274,43 @@ router.put("/users/:id", protect, validateRequest(updateUserSchema), async (req,
   }
 });
 
+// DELETE: Delete user by ID - Protected route
+router.delete("/users/:id", protect, async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Validate if userId is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID format",
+      });
+    }
+
+    // Add authorization check: User can only delete their own profile
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to delete this user",
+      });
+    }
+    const deletedUser = await User.findByIdAndDelete(userId);
+
+    if (!deletedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 module.exports = router;
