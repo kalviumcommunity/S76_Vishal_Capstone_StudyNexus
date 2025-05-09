@@ -1,0 +1,17 @@
+meta {
+  name: Join Study Group
+  type: http
+  seq: 10
+}
+
+post {
+  url: http://localhost:5000/api/studygroups/6814b80e8b74d254291b9ce7/join
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "userId": "6811fa5cc584ac91acbdb3da"
+  }
+}
