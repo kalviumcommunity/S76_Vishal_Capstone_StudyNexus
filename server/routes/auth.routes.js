@@ -294,7 +294,6 @@ router.delete("/users/:id", protect, async (req, res) => {
         message: "Not authorized to delete this user",
       });
     }
-
     const deletedUser = await User.findByIdAndDelete(userId);
 
     if (!deletedUser) {
