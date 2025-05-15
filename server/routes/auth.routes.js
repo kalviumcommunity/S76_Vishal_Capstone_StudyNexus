@@ -2,11 +2,14 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken"); // Add JWT import
+const jwt = require("jsonwebtoken"); 
 const User = require("../models/User");
 const { registerSchema, loginSchema, updateUserSchema } = require('../Validation/authValidation');
 const validateRequest = require('../middleware/validateRequest');
-const { protect } = require('../middleware/authMiddleware'); // Import the auth middleware
+const { protect } = require('../middleware/authMiddleware');
+
+// ADDED: Import Firebase admin
+const admin = require('../config/firebase.config');
 
 // JWT Token Generation utility
 const generateToken = (userId) => {
@@ -15,7 +18,75 @@ const generateToken = (userId) => {
   });
 };
 
-// POST: User registration - Add Joi validation middleware
+// ADDED: Google authentication endpoint
+router.post("/google-auth", async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: "ID token is required"
+      });
+    }
+    
+    // Verify the Firebase ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    
+    // Extract user info from the decoded token
+    const { email, name, picture, uid } = decodedToken;
+    
+    // Check if user exists
+    let user = await User.findOne({ email });
+    
+    if (user) {
+      // Update existing user with Google info if needed
+      if (!user.googleId) {
+        user.googleId = uid;
+        user.authProvider = 'google';
+        if (picture && !user.profilePicture) {
+          user.profilePicture = picture;
+        }
+        await user.save();
+      }
+    } else {
+      // Create new user
+      user = new User({
+        fullName: name || email.split('@')[0],
+        email,
+        googleId: uid,
+        profilePicture: picture,
+        authProvider: 'google'
+      });
+      
+      await user.save();
+    }
+    
+    // Generate JWT token
+    const token = generateToken(user._id);
+    
+    res.status(200).json({
+      success: true,
+      message: "Google authentication successful",
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        profilePicture: user.profilePicture
+      },
+      token
+    });
+  } catch (error) {
+    console.error("Google authentication error:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Authentication failed",
+      error: error.message
+    });
+  }
+});
+
+// Original registration route - slightly modified to include authProvider
 router.post("/register", validateRequest(registerSchema), async (req, res) => {
   try {
     // Extract fields and handle both name and fullName for compatibility
@@ -38,6 +109,8 @@ router.post("/register", validateRequest(registerSchema), async (req, res) => {
       fullName: userFullName,
       email,
       password,
+      // ADDED: Specify this is a local auth user
+      authProvider: 'local'
     });
 
     await newUser.save();
@@ -62,7 +135,7 @@ router.post("/register", validateRequest(registerSchema), async (req, res) => {
   }
 });
 
-// POST: User login - Add Joi validation middleware
+// Original login route - modified to check for Google auth users
 router.post("/login", validateRequest(loginSchema), async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -74,6 +147,14 @@ router.post("/login", validateRequest(loginSchema), async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
+    }
+
+    // ADDED: Check if this is a Google auth user
+    if (user.authProvider === 'google') {
+      return res.status(400).json({
+        success: false,
+        message: "This account uses Google authentication. Please sign in with Google."
+      });
     }
 
     // Verify password
@@ -95,6 +176,8 @@ router.post("/login", validateRequest(loginSchema), async (req, res) => {
         id: user._id,
         fullName: user.fullName,
         email: user.email,
+        // ADDED: Include profile picture if available
+        profilePicture: user.profilePicture
       },
       token // Include token in response
     });
@@ -104,7 +187,7 @@ router.post("/login", validateRequest(loginSchema), async (req, res) => {
   }
 });
 
-// GET: Get current user (protected route)
+// GET: Get current user - modified to include new fields
 router.get("/me", protect, async (req, res) => {
   try {
     // User is available from the middleware
@@ -116,6 +199,9 @@ router.get("/me", protect, async (req, res) => {
         id: user._id,
         fullName: user.fullName,
         email: user.email,
+        // ADDED: Include new fields
+        profilePicture: user.profilePicture,
+        authProvider: user.authProvider,
         createdAt: user.createdAt
       }
     });
@@ -125,7 +211,7 @@ router.get("/me", protect, async (req, res) => {
   }
 });
 
-// GET: Get all users - Protected route
+// All other routes remain unchanged
 router.get("/users", protect, async (req, res) => {
   try {
     // Find all users but exclude passwords
@@ -147,7 +233,6 @@ router.get("/users", protect, async (req, res) => {
   }
 });
 
-// GET: Get user by ID - Protected route
 router.get("/users/:id", protect, async (req, res) => {
   try {
     const userId = req.params.id;
@@ -185,7 +270,6 @@ router.get("/users/:id", protect, async (req, res) => {
   }
 });
 
-// PUT: Update user by ID - Protected route with Joi validation middleware
 router.put("/users/:id", protect, validateRequest(updateUserSchema), async (req, res) => {
   try {
     const userId = req.params.id;
@@ -274,7 +358,6 @@ router.put("/users/:id", protect, validateRequest(updateUserSchema), async (req,
   }
 });
 
-// DELETE: Delete user by ID - Protected route
 router.delete("/users/:id", protect, async (req, res) => {
   try {
     const userId = req.params.id;
