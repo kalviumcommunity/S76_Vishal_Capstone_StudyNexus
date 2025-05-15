@@ -1,5 +1,13 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import axios from "axios";
+// Import Firebase auth
+import { 
+  GoogleAuthProvider, 
+  signInWithPopup,
+  signOut as firebaseSignOut,
+  onAuthStateChanged  
+} from 'firebase/auth';
+import { auth } from '../firebase/config';
 
 // Create context
 const AuthContext = createContext();
@@ -12,13 +20,50 @@ axios.defaults.baseURL = 'http://localhost:5000';
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [firebaseUser, setFirebaseUser] = useState(null);
 
   // JWT utility functions
   const setToken = (token) => localStorage.setItem('token', token);
   const removeToken = () => localStorage.removeItem('token');
 
+  // Listen for Firebase auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setFirebaseUser(currentUser);
+      
+      if (currentUser) {
+        // User is signed in with Firebase
+        try {
+          // Get ID token from Firebase user
+          const idToken = await currentUser.getIdToken();
+          
+          // You might want to send this token to your backend to verify and create a session
+          // or use it directly for authentication
+          setToken(idToken);
+          axios.defaults.headers.common["Authorization"] = `Bearer ${idToken}`;
+          
+          // Set user based on Firebase user info
+          setUser({
+            uid: currentUser.uid,
+            email: currentUser.email,
+            displayName: currentUser.displayName,
+            photoURL: currentUser.photoURL,
+            authProvider: 'google'
+          });
+        } catch (error) {
+          console.error("Firebase token error:", error);
+        }
+      }
+    });
+    
+    return () => unsubscribe();
+  }, []);
+
+  // Check traditional JWT auth
   useEffect(() => {
     const checkAuth = async () => {
+      if (firebaseUser) return; // Skip if Firebase user is already set
+      
       setLoading(true);
       try {
         const token = localStorage.getItem('token');
@@ -40,7 +85,50 @@ export const AuthProvider = ({ children }) => {
     };
 
     checkAuth();
-  }, []);
+  }, [firebaseUser]);
+
+  // Google sign-in function
+  const signInWithGoogle = async () => {
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      
+      // If you need to register the user in your backend
+      // You can make an API call here using the Google user data
+      try {
+        const idToken = await result.user.getIdToken();
+        
+        // Optional: Call your backend to register/login the Google user
+        const response = await axios.post("/api/auth/google-auth", { 
+          idToken,
+          email: result.user.email,
+          displayName: result.user.displayName,
+          photoURL: result.user.photoURL
+        });
+        
+        if (response.data.success && response.data.token) {
+          setToken(response.data.token);
+        } else {
+          // Just use the Firebase token directly if no backend token
+          setToken(idToken);
+        }
+        
+        return true;
+      } catch (backendError) {
+        console.error("Backend registration error:", backendError);
+        // Fall back to using Firebase token directly
+        const idToken = await result.user.getIdToken();
+        setToken(idToken);
+        return true;
+      }
+    } catch (error) {
+      console.error("Google Sign-in error:", error);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Login function with correct API path
   const login = async (email, password) => {
@@ -111,11 +199,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout function
-  const logout = () => {
-    removeToken();
-    delete axios.defaults.headers.common["Authorization"];
-    setUser(null);
+  // Combined logout function
+  const logout = async () => {
+    try {
+      // Firebase logout if available
+      if (firebaseUser) {
+        await firebaseSignOut(auth);
+      }
+      // Also clear traditional auth
+      removeToken();
+      delete axios.defaults.headers.common["Authorization"];
+      setUser(null);
+      setFirebaseUser(null);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (
@@ -126,6 +224,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
+        signInWithGoogle,
         isAuthenticated: !!user,
         currentUser: user // For backward compatibility
       }}

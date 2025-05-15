@@ -2,15 +2,16 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-const LoginPage = () => {
+const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, signInWithGoogle } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false); // Add state for Google login
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -20,54 +21,118 @@ const LoginPage = () => {
     });
   };
 
+  // Google login handler
+  const handleGoogleLogin = async () => {
+    setErrorMessage("");
+    setGoogleLoading(true);
+
+    try {
+      const result = await signInWithGoogle();
+
+      if (result) {
+        // Successful Google login
+        navigate("/dashboard");
+      } else {
+        setErrorMessage("Google login failed. Please try again.");
+      }
+    } catch (error) {
+      console.error("Google login error:", error);
+      setErrorMessage(error.message || "Failed to login with Google");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
-    
-    // Validate form
+
     if (!formData.email || !formData.password) {
-      setErrorMessage("Please fill in all fields");
+      setErrorMessage("Please fill in all required fields");
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
       const success = await login(formData.email, formData.password);
-      
       if (success) {
-        console.log("Login successful");
         navigate("/dashboard");
       } else {
-        setErrorMessage("Invalid email or password");
+        setErrorMessage("Invalid credentials");
       }
     } catch (error) {
       console.error("Login error:", error);
-      setErrorMessage(error.message || "Login failed");
+      setErrorMessage(
+        error.response?.data?.message || "Login failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    // Rest of component remains the same
     <div className="max-w-md mx-auto my-12 px-8 py-12 bg-white rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold mb-6 text-center">Log In to StudyNexus</h2>
-      
+      <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
+
       {errorMessage && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
           {errorMessage}
         </div>
       )}
-      
+
+      {/* Google Login Button - With Google's official colors */}
+      <button
+        type="button"
+        onClick={handleGoogleLogin}
+        disabled={googleLoading}
+        className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg py-3 px-4 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#4285F4] mb-6"
+      >
+        {/* Google's official colored logo */}
+        <svg
+          width="18"
+          height="18"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 48 48"
+        >
+          <path
+            fill="#EA4335"
+            d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+          />
+          <path
+            fill="#4285F4"
+            d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+          />
+          <path
+            fill="#FBBC05"
+            d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+          />
+          <path
+            fill="#34A853"
+            d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+          />
+        </svg>
+        {googleLoading ? "Logging in..." : "Login with Google"}
+      </button>
+
+      <div className="relative mb-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-300"></div>
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="px-2 bg-white text-gray-500">
+            Or login with email
+          </span>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit}>
-        {/* Form fields remain the same */}
         <div className="mb-6">
-          <label 
-            htmlFor="email" 
+          <label
+            htmlFor="email"
             className="block text-gray-700 text-sm font-semibold mb-2"
           >
-            Email
+            Email*
           </label>
           <input
             type="email"
@@ -76,17 +141,16 @@ const LoginPage = () => {
             value={formData.email}
             onChange={handleChange}
             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00EACC]"
-            placeholder="your@email.com"
             required
           />
         </div>
-        
+
         <div className="mb-6">
-          <label 
-            htmlFor="password" 
+          <label
+            htmlFor="password"
             className="block text-gray-700 text-sm font-semibold mb-2"
           >
-            Password
+            Password*
           </label>
           <input
             type="password"
@@ -95,42 +159,24 @@ const LoginPage = () => {
             value={formData.password}
             onChange={handleChange}
             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00EACC]"
-            placeholder="••••••••"
             required
           />
         </div>
-        
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="remember"
-              className="h-4 w-4 text-[#00EACC] focus:ring-[#00EACC] border-gray-300 rounded"
-            />
-            <label htmlFor="remember" className="ml-2 block text-sm text-gray-700">
-              Remember me
-            </label>
-          </div>
-          
-          <Link to="#" className="text-sm text-[#00EACC] hover:underline">
-            Forgot password?
-          </Link>
-        </div>
-        
+
         <button
           type="submit"
           disabled={loading}
           className="w-full bg-[#00EACC] text-black font-medium py-3 rounded-lg hover:bg-opacity-90 transition"
         >
-          {loading ? "Logging in..." : "Log In"}
+          {loading ? "Logging in..." : "Login"}
         </button>
       </form>
-      
+
       <div className="mt-6 text-center">
         <p className="text-gray-600">
           Don't have an account?{" "}
           <Link to="/register" className="text-[#00EACC] hover:underline">
-            Sign up
+            Create an account
           </Link>
         </p>
       </div>
@@ -138,4 +184,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default Login;
