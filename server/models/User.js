@@ -45,6 +45,36 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'StudyGroup'
   }],
+  // Learning profile for AI matching
+  learningProfile: {
+    learningStyle: {
+      type: String,
+      enum: ['visual', 'auditory', 'reading/writing', 'kinesthetic']
+    },
+    collaborationStyle: {
+      type: String,
+      enum: ['collaborative', 'independent']
+    },
+    studyGoals: {
+      type: String,
+      enum: ['conceptual', 'factual', 'practical', 'analytical']
+    },
+    schedulePreference: {
+      type: String,
+      enum: ['structured', 'flexible', 'intensive', 'distributed']
+    },
+    subjectPreference: {
+      type: String,
+      enum: ['math_physics', 'literature', 'computer_science', 'social_sciences']
+    },
+    rawScores: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
+    completedAt: {
+      type: Date
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now
