@@ -7,6 +7,8 @@ import Hero from "./components/Hero";
 import Login from "./components/LoginPage";
 import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
+import LearningStyleAssessment from "./components/LearningStyleAssessment";
+import LearningStyleResults from "./components/LearningStyleResults";
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -34,6 +36,22 @@ const AppContent = () => {
           <Route path="/" element={<Hero />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route
+            path="/learning-assessment"
+            element={
+              <ProtectedRoute>
+                <LearningStyleAssessment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/learning-results"
+            element={
+              <ProtectedRoute>
+                <LearningStyleResults />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/dashboard"
             element={
