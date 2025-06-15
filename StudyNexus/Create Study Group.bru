@@ -1,0 +1,23 @@
+meta {
+  name: Create Study Group
+  type: http
+  seq: 8
+}
+
+post {
+  url: http://localhost:5000/api/studygroups
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+      "name": "Web Development Mastery",
+      "description": "A group to learn modern web development techniques", 
+      "course": "64f5a53bdfc28e5718ab2133",
+      "capacity": 5,
+      "isPublic": true,
+      "studyGoal": "Concept Mastery",
+      "userId": "6810c44264fda3325629a39e"
+  }
+}

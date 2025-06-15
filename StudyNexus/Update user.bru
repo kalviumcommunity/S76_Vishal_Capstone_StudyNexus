@@ -1,0 +1,17 @@
+meta {
+  name: Update user
+  type: http
+  seq: 6
+}
+
+put {
+  url: http://localhost:5000/api/auth/users/6810c44264fda3325629a39e
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "vishalm@gmail.com"
+  }
+}
