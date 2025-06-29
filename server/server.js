@@ -13,8 +13,24 @@ if (!process.env.JWT_SECRET) {
   process.exit(1); // Exit with error
 }
 
+// CORS configuration for frontend
+const corsOptions = {
+  origin: [
+    'http://localhost:5173', // Vite default port
+    'http://localhost:5174', // Vite alternative port
+    'http://localhost:3000', // React default port
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+    'http://127.0.0.1:3000'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
 // THEN add middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Add logging middleware AFTER app is defined

@@ -9,6 +9,8 @@ import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
 import LearningStyleAssessment from "./components/LearningStyleAssessment";
 import LearningStyleResults from "./components/LearningStyleResults";
+import StudyGroups from "./components/StudyGroups";
+import Resources from "./components/Resources";
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -64,6 +66,22 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/study-groups"
+            element={
+              <ProtectedRoute>
+                <StudyGroups />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/resources"
+            element={
+              <ProtectedRoute>
+                <Resources />
               </ProtectedRoute>
             }
           />

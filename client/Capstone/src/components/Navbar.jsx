@@ -64,7 +64,19 @@ const Navbar = () => {
               to="/dashboard"
               className="text-lg text-gray-800 hover:text-gray-600"
             >
-              Dashboard
+              Home
+            </Link>
+            <Link
+              to="/study-groups"
+              className="text-lg text-gray-800 hover:text-gray-600"
+            >
+              Groups
+            </Link>
+            <Link
+              to="/resources"
+              className="text-lg text-gray-800 hover:text-gray-600"
+            >
+              Resources
             </Link>
             <span className="text-lg text-gray-800">
               Hello, {user.fullName || user.username || "User"}

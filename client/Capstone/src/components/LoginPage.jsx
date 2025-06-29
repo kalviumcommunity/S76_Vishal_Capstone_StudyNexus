@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, signInWithGoogle } = useAuth();
+  const { login, signInWithGoogle, signInWithGoogleRedirect } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -27,25 +27,41 @@ const Login = () => {
     setGoogleLoading(true);
 
     try {
-      const result = await signInWithGoogle(useRedirect);
-
-      if (result.success) {
-        // Successful Google login
-        navigate("/dashboard");
+      if (useRedirect) {
+        // Use redirect method - this will navigate away from the page
+        await signInWithGoogleRedirect();
+        // No need to navigate here as the page will redirect and come back
       } else {
-        setErrorMessage(result.message || "Google login failed. Please try again.");
+        // Use popup method
+        const result = await signInWithGoogle();
+
+        if (result.success) {
+          // Successful Google login
+          if (result.isTemporary) {
+            // Show a brief message about offline mode
+            console.log("Signed in with temporary session");
+          }
+          navigate("/dashboard");
+        } else {
+          setErrorMessage(result.message || "Google login failed. Please try again.");
+        }
       }
     } catch (error) {
       console.error("Google login error:", error);
       
-      // Show user-friendly error message
-      if (error.message && error.message.includes("popup")) {
-        setErrorMessage(error.message + " You can try the redirect option below.");
-      } else {
-        setErrorMessage(error.message || "Failed to login with Google");
+      // Show user-friendly error message with better handling
+      let errorMsg = error.message || "Failed to login with Google";
+      
+      if (error.message && (error.message.includes("popup") || error.message.includes("internal-error"))) {
+        errorMsg = error.message + " You can try the redirect option below.";
       }
+      
+      setErrorMessage(errorMsg);
     } finally {
-      setGoogleLoading(false);
+      if (!useRedirect) {
+        setGoogleLoading(false);
+      }
+      // Don't set loading to false for redirect as the page will reload
     }
   };
 
@@ -121,8 +137,8 @@ const Login = () => {
         {googleLoading ? "Logging in..." : "Login with Google"}
       </button>
 
-      {/* Alternative redirect button if popup is blocked */}
-      {errorMessage && errorMessage.includes("popup") && (
+      {/* Alternative redirect button if popup is blocked or internal error */}
+      {errorMessage && (errorMessage.includes("popup") || errorMessage.includes("internal-error")) && (
         <button
           type="button"
           onClick={() => handleGoogleLogin(true)}
