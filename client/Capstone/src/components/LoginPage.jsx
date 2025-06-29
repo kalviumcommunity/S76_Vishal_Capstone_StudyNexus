@@ -21,47 +21,57 @@ const Login = () => {
     });
   };
 
-  // Google login handler with improved error handling
+  // Enhanced Google login handler with automatic fallback
   const handleGoogleLogin = async (useRedirect = false) => {
     setErrorMessage("");
     setGoogleLoading(true);
 
     try {
+      let result;
+      
       if (useRedirect) {
-        // Use redirect method - this will navigate away from the page
+        // Use redirect method directly
         await signInWithGoogleRedirect();
-        // No need to navigate here as the page will redirect and come back
+        // Don't set loading to false as the page will redirect
+        return;
       } else {
-        // Use popup method
-        const result = await signInWithGoogle();
+        // Use popup method with automatic fallback
+        result = await signInWithGoogle();
+      }
 
-        if (result.success) {
-          // Successful Google login
-          if (result.isTemporary) {
-            // Show a brief message about offline mode
-            console.log("Signed in with temporary session");
-          }
-          navigate("/dashboard");
+      if (result.success) {
+        // Successful Google login
+        if (result.isTemporary) {
+          console.log("Signed in with temporary session");
+          // Could show a brief toast notification here
+        }
+        
+        if (result.message === "Redirecting for Google sign-in...") {
+          // Don't navigate yet, redirect is happening
+          setErrorMessage("Redirecting to Google sign-in...");
+          return;
+        }
+        
+        navigate("/dashboard");
+      } else {
+        // Check if error message suggests using redirect
+        if (result.message && (
+          result.message.includes("Popup was blocked") ||
+          result.message.includes("Internal error") ||
+          result.message.includes("redirect option")
+        )) {
+          setErrorMessage(result.message + " Click the redirect button below to continue.");
         } else {
           setErrorMessage(result.message || "Google login failed. Please try again.");
         }
       }
     } catch (error) {
       console.error("Google login error:", error);
-      
-      // Show user-friendly error message with better handling
-      let errorMsg = error.message || "Failed to login with Google";
-      
-      if (error.message && (error.message.includes("popup") || error.message.includes("internal-error"))) {
-        errorMsg = error.message + " You can try the redirect option below.";
-      }
-      
-      setErrorMessage(errorMsg);
+      setErrorMessage(error.message || "Failed to login with Google. Please try the redirect option.");
     } finally {
       if (!useRedirect) {
         setGoogleLoading(false);
       }
-      // Don't set loading to false for redirect as the page will reload
     }
   };
 
@@ -137,8 +147,14 @@ const Login = () => {
         {googleLoading ? "Logging in..." : "Login with Google"}
       </button>
 
-      {/* Alternative redirect button if popup is blocked or internal error */}
-      {errorMessage && (errorMessage.includes("popup") || errorMessage.includes("internal-error")) && (
+      {/* Alternative redirect button for various error scenarios */}
+      {errorMessage && (
+        errorMessage.includes("popup") || 
+        errorMessage.includes("internal-error") || 
+        errorMessage.includes("redirect option") ||
+        errorMessage.includes("cancelled") ||
+        errorMessage.includes("blocked")
+      ) && (
         <button
           type="button"
           onClick={() => handleGoogleLogin(true)}

@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { logAuthEnvironment } from '../utils/firebaseDebug';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -35,12 +36,20 @@ try {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   
-  // Configure auth settings
+  // Configure auth settings for better reliability
   auth.languageCode = 'en';
+  
+  // Set auth persistence (helps with page refreshes)
+  // This is now handled automatically by Firebase v9+
   
   console.log('Firebase initialized successfully');
   console.log('Auth domain:', firebaseConfig.authDomain);
   console.log('Project ID:', firebaseConfig.projectId);
+  
+  // Log debug information in development
+  if (process.env.NODE_ENV === 'development') {
+    logAuthEnvironment();
+  }
   
 } catch (error) {
   console.error('Firebase initialization error:', error);

@@ -42,15 +42,18 @@ export const AuthProvider = ({ children }) => {
         const redirectResult = await getRedirectResult(auth);
         if (redirectResult?.user) {
           console.log("Processing Google redirect result:", redirectResult.user.email);
+          localStorage.removeItem('googleAuthPending'); // Clear pending flag
           
-          // Send Google user data to backend for JWT token
+          const userData = {
+            email: redirectResult.user.email,
+            displayName: redirectResult.user.displayName,
+            photoURL: redirectResult.user.photoURL,
+            uid: redirectResult.user.uid
+          };
+          
+          // Try to send to backend
           try {
-            const response = await axios.post("/api/auth/google-auth", {
-              email: redirectResult.user.email,
-              displayName: redirectResult.user.displayName,
-              photoURL: redirectResult.user.photoURL,
-              uid: redirectResult.user.uid
-            });
+            const response = await axios.post("/api/auth/google-auth", userData);
             
             if (response.data.success) {
               setToken(response.data.token);
@@ -61,23 +64,29 @@ export const AuthProvider = ({ children }) => {
             }
           } catch (backendError) {
             console.error("Backend communication error during redirect:", backendError);
-            
-            // Create temporary user session for redirect flow
-            const tempUser = {
-              id: redirectResult.user.uid,
-              fullName: redirectResult.user.displayName || redirectResult.user.email.split('@')[0],
-              email: redirectResult.user.email,
-              profilePicture: redirectResult.user.photoURL,
-              authProvider: 'google',
-              isTemporary: true
-            };
-            
-            localStorage.setItem('tempUser', JSON.stringify(tempUser));
-            setUser(tempUser);
-            console.log("Using temporary session for redirect due to backend unavailability");
-            setLoading(false);
-            return;
           }
+          
+          // Fall back to client session if backend fails
+          const tempUser = {
+            id: redirectResult.user.uid,
+            fullName: redirectResult.user.displayName || redirectResult.user.email.split('@')[0],
+            email: redirectResult.user.email,
+            profilePicture: redirectResult.user.photoURL,
+            authProvider: 'google',
+            isTemporary: true
+          };
+          
+          localStorage.setItem('tempUser', JSON.stringify(tempUser));
+          setUser(tempUser);
+          console.log("Using temporary session for redirect due to backend unavailability");
+          setLoading(false);
+          return;
+        }
+
+        // Check if we were expecting a redirect result but didn't get one
+        if (localStorage.getItem('googleAuthPending')) {
+          console.log("Redirect authentication was cancelled or failed");
+          localStorage.removeItem('googleAuthPending');
         }
         
         // Then check for existing JWT token
@@ -127,6 +136,7 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error("Auth verification failed:", error);
         removeToken();
+        localStorage.removeItem('googleAuthPending');
       } finally {
         setLoading(false);
       }
@@ -190,7 +200,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Enhanced Google sign-in function with better error handling
+  // Enhanced Google sign-in function with comprehensive error handling
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
@@ -201,66 +211,67 @@ export const AuthProvider = ({ children }) => {
 
       const provider = new GoogleAuthProvider();
       
-      // Configure provider with additional parameters
+      // Configure provider with minimal required parameters
       provider.setCustomParameters({
-        prompt: 'select_account',
-        include_granted_scopes: 'true',
-        access_type: 'online'
+        prompt: 'select_account'
       });
 
-      // Add scopes
+      // Add required scopes
       provider.addScope('email');
       provider.addScope('profile');
 
       console.log("Attempting Google sign-in...");
-      const result = await signInWithPopup(auth, provider);
+      
+      let result;
+      try {
+        result = await signInWithPopup(auth, provider);
+      } catch (popupError) {
+        console.log("Popup failed, trying redirect as fallback:", popupError.code);
+        
+        // If popup fails, automatically try redirect
+        if (popupError.code === 'auth/popup-closed-by-user' || 
+            popupError.code === 'auth/popup-blocked' ||
+            popupError.code === 'auth/internal-error') {
+          
+          console.log("Switching to redirect method...");
+          await signInWithRedirect(auth, provider);
+          return { success: true, message: "Redirecting for Google sign-in..." };
+        }
+        
+        throw popupError; // Re-throw other errors
+      }
+      
       console.log("Google sign-in result:", result);
       
-      if (result.user) {
+      if (result?.user) {
         console.log("User authenticated with Google:", result.user.email);
         
-        // Send Google user data to backend for JWT token
+        // Create user data object
+        const userData = {
+          email: result.user.email,
+          displayName: result.user.displayName,
+          photoURL: result.user.photoURL,
+          uid: result.user.uid
+        };
+        
+        // Try to send to backend
         try {
-          const response = await axios.post("/api/auth/google-auth", {
-            email: result.user.email,
-            displayName: result.user.displayName,
-            photoURL: result.user.photoURL,
-            uid: result.user.uid
-          });
+          const response = await axios.post("/api/auth/google-auth", userData);
           
           if (response.data.success) {
             setToken(response.data.token);
             setUser(response.data.user);
-            console.log("Google authentication successful");
+            console.log("Google authentication successful with backend");
             return { success: true };
           } else {
             console.error("Backend authentication failed:", response.data);
-            return { success: false, message: response.data.message };
+            // Fall back to client-side session
+            return await createClientSession(result.user, "Backend authentication failed, using client session");
           }
         } catch (backendError) {
           console.error("Backend communication error:", backendError);
-          
-          // If backend is down, create a temporary user session
-          // This allows the frontend to work even if backend is unavailable
-          const tempUser = {
-            id: result.user.uid,
-            fullName: result.user.displayName || result.user.email.split('@')[0],
-            email: result.user.email,
-            profilePicture: result.user.photoURL,
-            authProvider: 'google',
-            isTemporary: true // Flag to indicate this is a temporary session
-          };
-          
-          // Store temporary user data locally
-          localStorage.setItem('tempUser', JSON.stringify(tempUser));
-          setUser(tempUser);
-          
-          console.log("Using temporary session due to backend unavailability");
-          return { 
-            success: true, 
-            message: "Signed in successfully (offline mode)",
-            isTemporary: true
-          };
+          // Fall back to client-side session
+          return await createClientSession(result.user, "Server unavailable, using offline mode");
         }
       }
       
@@ -268,123 +279,131 @@ export const AuthProvider = ({ children }) => {
       
     } catch (error) {
       console.error("Google sign-in error:", error);
-      
-      // Handle specific Firebase errors
-      let message = "Google sign-in failed";
-      
-      if (error.code) {
-        switch (error.code) {
-          case 'auth/popup-blocked':
-            message = "Popup was blocked. Please allow popups and try again.";
-            break;
-          case 'auth/popup-closed-by-user':
-            message = "Sign-in was cancelled.";
-            break;
-          case 'auth/cancelled-popup-request':
-            message = "Another popup is already open.";
-            break;
-          case 'auth/internal-error':
-            message = "Internal authentication error. Please check your internet connection and try again.";
-            break;
-          case 'auth/network-request-failed':
-            message = "Network error. Please check your internet connection.";
-            break;
-          case 'auth/too-many-requests':
-            message = "Too many requests. Please wait and try again.";
-            break;
-          case 'auth/unauthorized-domain':
-            message = "This domain is not authorized for Google sign-in.";
-            break;
-          default:
-            message = `Authentication error: ${error.message}`;
-        }
-      } else if (error.name === 'AxiosError' && error.code === 'ERR_NETWORK') {
-        message = "Cannot connect to server. Please check if the server is running and try again.";
-      } else if (error.response?.data?.message) {
-        message = error.response.data.message;
-      } else if (error.message) {
-        message = error.message;
-      }
-      
-      return { success: false, message };
+      return handleAuthError(error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Alternative Google sign-in with redirect (fallback method)
+  // Helper function to create client-side session when backend is unavailable
+  const createClientSession = async (firebaseUser, message) => {
+    const tempUser = {
+      id: firebaseUser.uid,
+      fullName: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+      email: firebaseUser.email,
+      profilePicture: firebaseUser.photoURL,
+      authProvider: 'google',
+      isTemporary: true
+    };
+    
+    localStorage.setItem('tempUser', JSON.stringify(tempUser));
+    setUser(tempUser);
+    
+    console.log("Created client-side session:", message);
+    return { 
+      success: true, 
+      message: message,
+      isTemporary: true
+    };
+  };
+
+  // Helper function to handle authentication errors
+  const handleAuthError = (error) => {
+    let message = "Google sign-in failed";
+    
+    if (error.code) {
+      switch (error.code) {
+        case 'auth/popup-blocked':
+          message = "Popup was blocked. Trying redirect method...";
+          // Automatically attempt redirect
+          setTimeout(() => signInWithGoogleRedirect().catch(console.error), 1000);
+          break;
+        case 'auth/popup-closed-by-user':
+          message = "Sign-in was cancelled. You can try again or use the redirect option.";
+          break;
+        case 'auth/cancelled-popup-request':
+          message = "Another sign-in is in progress. Please wait.";
+          break;
+        case 'auth/internal-error':
+          message = "Internal error occurred. Trying redirect method...";
+          setTimeout(() => signInWithGoogleRedirect().catch(console.error), 1000);
+          break;
+        case 'auth/network-request-failed':
+          message = "Network error. Please check your connection.";
+          break;
+        case 'auth/too-many-requests':
+          message = "Too many requests. Please wait a moment and try again.";
+          break;
+        case 'auth/unauthorized-domain':
+          message = "This domain is not authorized. Please contact support.";
+          break;
+        case 'auth/operation-not-allowed':
+          message = "Google sign-in is not enabled. Please contact support.";
+          break;
+        default:
+          message = `Authentication error (${error.code}). Please try the redirect option.`;
+      }
+    } else if (error.name === 'AxiosError') {
+      if (error.code === 'ERR_NETWORK') {
+        message = "Cannot connect to server. Please check if the server is running.";
+      } else {
+        message = "Server error occurred. Please try again.";
+      }
+    } else if (error.message) {
+      message = error.message;
+    }
+    
+    return { success: false, message };
+  };
+
+  // Enhanced Google sign-in with redirect (fallback method)
   const signInWithGoogleRedirect = async () => {
     try {
-      // Check if auth is initialized
       if (!auth) {
         throw new Error("Firebase auth not initialized");
       }
 
       const provider = new GoogleAuthProvider();
       
-      // Configure provider with additional parameters
+      // Configure provider with minimal parameters for redirect
       provider.setCustomParameters({
-        prompt: 'select_account',
-        include_granted_scopes: 'true',
-        access_type: 'online'
+        prompt: 'select_account'
       });
 
-      // Add scopes
       provider.addScope('email');
       provider.addScope('profile');
 
       console.log("Attempting Google sign-in with redirect...");
+      
+      // Store a flag to indicate we're expecting a redirect result
+      localStorage.setItem('googleAuthPending', 'true');
+      
       await signInWithRedirect(auth, provider);
       // Note: The result will be handled in the useEffect hook via getRedirectResult
       
     } catch (error) {
       console.error("Google redirect sign-in error:", error);
-      
-      // Handle specific Firebase errors
-      let message = "Google sign-in failed";
-      
-      if (error.code) {
-        switch (error.code) {
-          case 'auth/internal-error':
-            message = "Internal authentication error. Please check your internet connection and try again.";
-            break;
-          case 'auth/network-request-failed':
-            message = "Network error. Please check your internet connection.";
-            break;
-          case 'auth/too-many-requests':
-            message = "Too many requests. Please wait and try again.";
-            break;
-          case 'auth/unauthorized-domain':
-            message = "This domain is not authorized for Google sign-in.";
-            break;
-          default:
-            message = `Authentication error: ${error.message}`;
-        }
-      } else if (error.message) {
-        message = error.message;
-      }
-      
-      throw new Error(message);
+      localStorage.removeItem('googleAuthPending');
+      throw error;
     }
   };
 
-  // Logout function
+  // Comprehensive logout function
   const logout = async () => {
     try {
       // Sign out from Firebase
       await firebaseSignOut(auth);
-      
-      // Clear JWT token and user state
-      removeToken();
-      localStorage.removeItem('tempUser'); // Also remove temporary user data
-      setUser(null);
     } catch (error) {
-      console.error("Logout error:", error);
-      // Even if Firebase logout fails, clear local state
-      removeToken();
-      localStorage.removeItem('tempUser');
-      setUser(null);
+      console.error("Firebase logout error:", error);
     }
+    
+    // Clear all local storage data regardless of Firebase logout result
+    removeToken();
+    localStorage.removeItem('tempUser');
+    localStorage.removeItem('googleAuthPending');
+    setUser(null);
+    
+    console.log("User logged out successfully");
   };
 
   const value = {
