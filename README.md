@@ -48,7 +48,7 @@
 
 ## 🌐 Deployment
 * **Backend Server:** [https://s76-vishal-capstone-studynexus.onrender.com](https://s76-vishal-capstone-studynexus.onrender.com)
-* **Frontend Server:**https://study-nexus.netlify.app/
+*   Frontend Server: https://study-nexus.netlify.app/
 
 ---
 *StudyNexus: Connecting minds for better learning*
