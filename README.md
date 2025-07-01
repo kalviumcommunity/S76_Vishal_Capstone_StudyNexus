@@ -35,9 +35,9 @@
 * **Day 8:** Enhanced matching algorithm (learning style compatibility)
 * **Day 9:** Study group creation and joining functionality
 * **Day 10:** Group scheduling with Calendar API integration
-* **Day 11:** Communication tools for study groups
+* **Day 11:** Communication tools for study groupsREADME
 * **Day 12:** Learning analytics dashboard implementation
-* **Day 13:** Testing, bug fixes, and UI refinements
+* **Day 13:** Testing, bug fixes, and UI refinementsREADME
 * **Day 14:** Deployment (Vercel/Render) and documentation
 
 ## 🚀 Getting Started
@@ -48,6 +48,7 @@
 
 ## 🌐 Deployment
 * **Backend Server:** [https://s76-vishal-capstone-studynexus.onrender.com](https://s76-vishal-capstone-studynexus.onrender.com)
+* **Frontend Server:**https://study-nexus.netlify.app/
 
 ---
 *StudyNexus: Connecting minds for better learning*
