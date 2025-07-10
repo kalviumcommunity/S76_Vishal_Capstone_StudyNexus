@@ -21,6 +21,28 @@ const generateToken = (userId) => {
   });
 };
 
+// NEW: Token verification endpoint
+router.get("/verify", protect, (req, res) => {
+  try {
+    res.json({
+      success: true,
+      message: "Token is valid",
+      user: {
+        id: req.user._id,
+        fullName: req.user.fullName,
+        email: req.user.email,
+        profilePicture: req.user.profilePicture,
+        learningProfile: req.user.learningProfile || {}
+      }
+    });
+  } catch (error) {
+    res.status(401).json({
+      success: false,
+      message: "Invalid token"
+    });
+  }
+});
+
 // NEW: Update learning profile route
 router.put("/learning-profile", protect, updateLearningProfile);
 

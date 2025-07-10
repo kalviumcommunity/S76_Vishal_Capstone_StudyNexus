@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import API_BASE_URL from '../config/apiConfig';
+import api from '../services/api';
 
 const LearningStyleAssessment = () => {
   const navigate = useNavigate();
@@ -215,8 +217,9 @@ const LearningStyleAssessment = () => {
         throw new Error('No authentication token found');
       }
       
-      const response = await axios.put(
-        'http://localhost:5000/api/auth/learning-profile',
+      // Use the API service instead of direct axios
+      const response = await api.put(
+        '/auth/learning-profile',
         { 
           learningStyle: profile.learningStyle,
           collaborationStyle: profile.collaborationStyle,

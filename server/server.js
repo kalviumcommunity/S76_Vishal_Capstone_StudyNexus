@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 require("dotenv").config();
 
 // Create Express app FIRST
@@ -21,7 +22,9 @@ const corsOptions = {
     'http://localhost:3000', // React default port
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
-    'http://127.0.0.1:3000'
+    'http://127.0.0.1:3000',
+    'https://study-nexus.netlify.app', // Netlify deployed frontend
+    'https://studynexus.netlify.app'  // Alternative Netlify domain
   ],
   credentials: true,
   optionsSuccessStatus: 200,
@@ -49,10 +52,29 @@ const studyGroupRoutes = require("./routes/studyGroupRoutes");
 
 // Use routes
 app.use("/api/auth", authRoutes);
-app.use("/api/studygroups", studyGroupRoutes);
+app.use("/api/study-groups", studyGroupRoutes);
 
-// Root route
-app.get("/", async (req, res) => {
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'StudyNexus API is running',
+    env: process.env.NODE_ENV,
+    mongoConnected: mongoose.connection.readyState === 1,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    status: "error",
+    message: "Endpoint not found",
+  });
+});
+
+// Test endpoint for users
+app.get("/api/users", async (req, res) => {
   try {
     const users = await User.find().select("-password");
     res.json({
