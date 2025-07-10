@@ -25,7 +25,12 @@ const LearningStyleResults = () => {
         return;
       }
 
-      const response = await axios.get('http://localhost:5000/api/auth/me', {
+      // Use environment-aware API URL
+      const baseUrl = import.meta.env.PROD 
+        ? 'https://studynexus-api.onrender.com' 
+        : 'http://localhost:5000';
+        
+      const response = await axios.get(`${baseUrl}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
