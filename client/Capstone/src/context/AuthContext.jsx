@@ -9,14 +9,15 @@ import {
   signOut as firebaseSignOut
 } from 'firebase/auth';
 import { auth, app } from '../firebase/config';
+import API_BASE_URL from '../config/apiConfig';
 
 // Create context
 const AuthContext = createContext();
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
 
-// Set base URL
-axios.defaults.baseURL = 'http://localhost:5000';
+// Set environment-aware base URL
+axios.defaults.baseURL = API_BASE_URL;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

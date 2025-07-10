@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { getToken } from '../utils/auth';
+import API_BASE_URL from '../config/apiConfig';
 
-// Create axios instance
+// Create axios instance with environment-aware base URL
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api', // Adjust based on your server URL
+  baseURL: `${API_BASE_URL}/api`,
 });
 
 // Add request interceptor for JWT token
