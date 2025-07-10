@@ -23,14 +23,28 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // JWT utility functions
+  // JWT utility functions with enhanced debugging and persistence
   const setToken = (token) => {
-    localStorage.setItem('token', token);
-    axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    // Store token in multiple places to ensure it's available
+    try {
+      console.log('Setting auth token...');
+      localStorage.setItem('token', token);
+      sessionStorage.setItem('token_backup', token);
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      
+      // Also set for fetch API if used anywhere
+      document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`;
+      
+      console.log('Token set successfully');
+    } catch (e) {
+      console.error('Error setting token:', e);
+    }
   };
   
   const removeToken = () => {
     localStorage.removeItem('token');
+    sessionStorage.removeItem('token_backup');
+    document.cookie = 'auth_token=; path=/; max-age=0';
     delete axios.defaults.headers.common["Authorization"];
   };
 

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import API_BASE_URL from '../config/apiConfig';
 import api from '../services/api';
+import apiProd, { submitAssessmentProd } from '../services/apiProd';
 
 const LearningStyleAssessment = () => {
   const navigate = useNavigate();
@@ -209,15 +210,33 @@ const LearningStyleAssessment = () => {
   // Save profile to database
   const saveLearningProfile = async (profile) => {
     try {
+      console.log('Profile to save:', profile);
+      
+      // Check if we're in production based on URL
+      const isProduction = window.location.hostname.includes('netlify.app') ||
+                          !window.location.hostname.includes('localhost');
+      
+      // Use production API for netlify deployment
+      if (isProduction) {
+        console.log('Using production API service');
+        // Use the production-specific API service
+        const result = await submitAssessmentProd(profile);
+        return {
+          success: true,
+          profile: result.profile || profile,
+          user: result.user || null
+        };
+      }
+      
+      // For local development continue with regular approach
       const token = localStorage.getItem('token');
       console.log('Saving profile with token:', token ? 'Token exists' : 'No token');
-      console.log('Profile to save:', profile);
       
       if (!token) {
         throw new Error('No authentication token found');
       }
       
-      // Use the API service instead of direct axios
+      // Use the API service for local development
       const response = await api.put(
         '/auth/learning-profile',
         { 
